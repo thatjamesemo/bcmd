@@ -4,6 +4,8 @@ Author: thatjamesemo
 Ver: 1.0.1 (ALPHA)
 """
 
+# TODO: Add a UI to the project, or a website on the Github page to save these to.
+
 import urllib.request
 import requests
 
@@ -58,15 +60,23 @@ def get_files(dict_links, names_of_songs, save_folder):
         for element in html_contents:
             if "<a class=\"popupImage\"" in element:
                 popup_images.append(element)
-            elif ".js" in element:
-                print(element)
         image_link = popup_images[0].replace("<a class=\"popupImage\" href=\"", "").replace("\">", "").replace(" ", "")
+        print("Image " + f"{save_folder}/{song_name}.jpg" + " has been saved")
 
         with open(f"{save_folder}/{song_name}.jpg", "wb") as file:
-            # file.write(requests.get(image_link).content)
+            file.write(requests.get(image_link).content)
             file.close()
+        # TODO: Trigger the button to download the music on these pages.
 
-        print("Image " + f"{save_folder}/{song_name}.jpg" + "has been saved")
+        links = []
+        for element in html_contents:
+            if "<script" in element and "mp3-128" in element:
+                links.append(element)
+                print(element)
+
+        print("\n\n")
+
+
 
 
 def main():
