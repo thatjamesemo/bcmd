@@ -61,7 +61,7 @@ def get_files(dict_links, names_of_songs, save_folder):
             if "<a class=\"popupImage\"" in element:
                 popup_images.append(element)
         image_link = popup_images[0].replace("<a class=\"popupImage\" href=\"", "").replace("\">", "").replace(" ", "")
-        print("Image " + f"{save_folder}/{song_name}.jpg" + " has been saved")
+        print("Image " + f"{save_folder}/{song_name}.jpg" + " has been saved.")
 
         with open(f"{save_folder}/{song_name}.jpg", "wb") as file:
             file.write(requests.get(image_link).content)
@@ -70,13 +70,16 @@ def get_files(dict_links, names_of_songs, save_folder):
 
         links = []
         for element in html_contents:
-            if "<script" in element and "mp3-128" in element:
-                links.append(element)
-                print(element)
+            if "https://t4.bcbits.com" in element:
+                temp_list = element.split("https://")
+                for item in temp_list:
+                    if "t4.bcbits.com" in item:
+                        links.append("https://" + item.replace("}", ""))
 
-        print("\n\n")
-
-
+        with open(f"{save_folder}/{song_name}.mp3", "wb") as file:
+            file.write(requests.get(links[0]).content)
+            file.close()
+        print("Song " + f"{save_folder}/{song_name}.mp3" + f" has been saved with link {links[0]}. \n")
 
 
 def main():
