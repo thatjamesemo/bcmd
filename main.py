@@ -8,8 +8,6 @@ Ver: 1.0.1 (ALPHA)
 
 import urllib.request
 import requests
-from PIL import Image
-from io import BytesIO
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, APIC
 
@@ -46,14 +44,18 @@ def get_html(website):
     return html_content
 
 
-def get_album_links(html_elements):
+def get_album_links(html_elements, link):
     html = html_elements.split("\n")
+    return_links = []
+    main_link = link.split("/album/")[0]
+    album_name = link.split("/album/")[1]
     for element in html:
-        index = html.index(element)
         if "<a href=\"/track/" in element and element.endswith("\">"):
-            print(element.replace("?action=download\"", '').replace("<a href=\"", ''))
+            return_links.append(main_link + element.replace("?action=download\">", '').replace("<a href=\"", ''))
 
-    print("\n\n")
+    print(f"Album for link: {link} has gotten all of the songs saved.")
+
+    return return_links
 
 
 def get_image(html_contents):
@@ -69,15 +71,7 @@ def get_image(html_contents):
             popup_images.append(element)
     image_link = popup_images[0].replace("<a class=\"popupImage\" href=\"", "").replace("\">", "").replace(" ", "")
 
-    jpg_bytes = requests.get(image_link).content
-    img = Image.open(BytesIO(jpg_bytes))
-
-    png_bytes = BytesIO()
-    img.save(png_bytes, "PNG")
-
-    png_bytes.seek(0)
-
-    return png_bytes.read()
+    return requests.get(image_link).content
 
 
 def get_song_file(html_contents, link):
@@ -130,7 +124,6 @@ def get_files(dict_links, names_of_songs, save_folder):
         for binary in song_bytes:
             with open(f"{save_folder}/{song_name}.mp3", "wb") as file:
                 file.write(binary)
-                print("Song " + f"{save_folder}/{song_name}.mp3 has been saved. \n")
                 file.close()
 
         image_content = get_image(html_contents)
@@ -145,6 +138,8 @@ def get_files(dict_links, names_of_songs, save_folder):
         )
         audio_file.save()
 
+        print("Song " + f"{save_folder}/{song_name}.mp3 has been saved. \n")
+
 
 def main():
     location = input("Please enter the location of the .TXT file with the links you want to download the song for: ")
@@ -154,18 +149,16 @@ def main():
         for item in links:
             links[links.index(item)] = item.replace("\n", "")
         n_links = []
-        s_links = []
         for link in links:
             if "/album/" not in link:
                 n_links.append(link)
             else:
                 html = get_html(link)
-                al_links = get_album_links(html)
+                al_links = get_album_links(html, link)
+                for item in al_links:
+                    n_links.append(item)
         file.close()
     dict_links, names_of_songs = create_dictionary(n_links)
-    s_dict_links, s_name_of_songs = create_dictionary(s_links)
-
-
 
     get_files(dict_links, names_of_songs, save_folder)
 
