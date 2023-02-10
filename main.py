@@ -8,6 +8,10 @@ Ver: 1.0.1 (ALPHA)
 
 import urllib.request
 import requests
+from PIL import Image
+from io import BytesIO
+from mutagen.mp3 import MP3
+from mutagen.id3 import ID3, APIC
 
 
 def create_dictionary(links):
@@ -42,6 +46,16 @@ def get_html(website):
     return html_content
 
 
+def get_album_links(html_elements):
+    html = html_elements.split("\n")
+    for element in html:
+        index = html.index(element)
+        if "<a href=\"/track/" in element and element.endswith("\">"):
+            print(element.replace("?action=download\"", '').replace("<a href=\"", ''))
+
+    print("\n\n")
+
+
 def get_image(html_contents):
     """
     Gets the bytes for the image file.
@@ -55,29 +69,47 @@ def get_image(html_contents):
             popup_images.append(element)
     image_link = popup_images[0].replace("<a class=\"popupImage\" href=\"", "").replace("\">", "").replace(" ", "")
 
-    return requests.get(image_link).content
+    jpg_bytes = requests.get(image_link).content
+    img = Image.open(BytesIO(jpg_bytes))
+
+    png_bytes = BytesIO()
+    img.save(png_bytes, "PNG")
+
+    png_bytes.seek(0)
+
+    return png_bytes.read()
 
 
-def get_song_file(html_contents):
+def get_song_file(html_contents, link):
     """
     Gets the binary for the mp3 files.
     :param html_contents:
     :return: list
     """
 
-    links = []
-    content = []
-    for element in html_contents:
-        if "https://t4.bcbits.com" in element:
-            temp_list = element.split("https://")
-            for item in temp_list:
-                if "t4.bcbits.com" in item:
-                    links.append("https://" + item.replace("}", ""))
+    if "/album/" in link:
+        links = []
+        content = []
+        for element in html_contents:
+            if "https://t4.bcbits.com" in element:
+                temp_list = element.split("https://")
+                for item in temp_list:
+                    if "t4.bcbits.com" in item:
+                        links.append("https://" + item.replace("}", ""))
+    elif "/track/" in link:
+        links = []
+        content = []
+        for element in html_contents:
+            if "https://t4.bcbits.com" in element:
+                temp_list = element.split("https://")
+                for item in temp_list:
+                    if "t4.bcbits.com" in item:
+                        links.append("https://" + item.replace("}", ""))
 
-    for link in links:
-        content.append(requests.get(link).content)
+        for link in links:
+            content.append(requests.get(link).content)
 
-    return content
+        return content
 
 
 def get_files(dict_links, names_of_songs, save_folder):
@@ -89,27 +121,29 @@ def get_files(dict_links, names_of_songs, save_folder):
     :return: null
     """
 
-    # TODO: Split up the creation of files into seperate commands, to save space and simplicity.
-    # TODO: Add in support for album accounts.
-
     for name in names_of_songs:
         song_name = name
         song_link = dict_links.get(song_name)
-
         html_contents = get_html(song_link).split("\n")
 
-        image_content = get_image(html_contents)
-        with open(f"{save_folder}/{song_name}.jpg", "wb") as file:
-            file.write(image_content)
-            print("Image " + f"{save_folder}/{song_name}.jpg" + " has been saved.")
-            file.close()
-
-        song_bytes = get_song_file(html_contents)
+        song_bytes = get_song_file(html_contents, song_link)
         for binary in song_bytes:
             with open(f"{save_folder}/{song_name}.mp3", "wb") as file:
                 file.write(binary)
                 print("Song " + f"{save_folder}/{song_name}.mp3 has been saved. \n")
                 file.close()
+
+        image_content = get_image(html_contents)
+        audio_file = MP3(f"{save_folder}/{song_name}.mp3")
+        audio_file.tags = ID3()
+        audio_file.tags["APIC"] = APIC(
+            encoding=3,
+            mime='image/png',
+            type=3,
+            desc=u'Cover',
+            data=image_content
+        )
+        audio_file.save()
 
 
 def main():
@@ -120,11 +154,18 @@ def main():
         for item in links:
             links[links.index(item)] = item.replace("\n", "")
         n_links = []
+        s_links = []
         for link in links:
             if "/album/" not in link:
                 n_links.append(link)
+            else:
+                html = get_html(link)
+                al_links = get_album_links(html)
         file.close()
     dict_links, names_of_songs = create_dictionary(n_links)
+    s_dict_links, s_name_of_songs = create_dictionary(s_links)
+
+
 
     get_files(dict_links, names_of_songs, save_folder)
 
